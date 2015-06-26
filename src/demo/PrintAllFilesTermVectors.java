@@ -2,53 +2,92 @@ package demo;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.*;
-import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.SimpleFSDirectory;
 import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Iterator;
+import java.util.List;
 
-/**
- * Created by nuplavikar on 6/25/15.
- */
 class PrintAllFilesTermVectors {
 
     public static void main(String [] args) throws IOException {
         String indexDir = args[0];
         String filename = args[1];
-        IndexReader indexReader = null;
+        String contentsFieldName = "contents";
+        LeafReader indexLeafReader = null;
         try {
-            indexReader = DirectoryReader.open(new SimpleFSDirectory(Paths.get(indexDir)));
+            IndexReader indexReader = DirectoryReader.open(new SimpleFSDirectory(Paths.get(indexDir)));
+            List<LeafReaderContext> leafReaderContextList = indexReader.leaves();
+            if (leafReaderContextList.isEmpty()) {
+                System.err.println("leafReaderContextList is empty!! ERROR!!");
+                System.exit(2);
+            }
+            indexLeafReader = leafReaderContextList.iterator().next().reader();
+            if (indexLeafReader == null)
+            {
+                Exception e = new Exception("indexLeafReader == null!!");
+                e.printStackTrace();
+                System.exit(3);
+            }
+
+
         } catch (IndexNotFoundException e)
         {
             System.out.println("No files found in the index specified in directory = "+indexDir);
             System.exit(1);
         }
 
-        int n =  indexReader.numDocs();
+        int n =  indexLeafReader.numDocs();
         System.out.println("Total number of indexed documents found = "+n);
 
         for ( int i = 0; i < n; i++  )
         {
-            Document doc = indexReader.document(i);
-            Fields fields = indexReader.getTermVectors(i);
+            Document doc = indexLeafReader.document(i);
+            Fields fields = indexLeafReader.getTermVectors(i);
             //Iterator<String> docFieldNameIterator =  fields.iterator();
             System.out.println("Printing terms for the file: "+doc.get("filename"));
-            Terms terms = fields.terms("contents");
+            Terms terms = fields.terms(contentsFieldName);
 
             System.out.println("\t\tTotal number of unique terms = "+terms.size());
             TermsEnum termsEnum = terms.iterator(null);
 
 
 
-            BytesRef term;
+            BytesRef termBytesRef;
             int count = 1;
-            while ((term = termsEnum.next()) != null)
+
+            while ((termBytesRef = termsEnum.next()) != null)
             {
-                System.out.println(count+"> "+term.utf8ToString());
-                count=count+1;
+
+
+                PostingsEnum postingsEnum;
+                Term term = new Term(contentsFieldName, termBytesRef);
+                postingsEnum = indexLeafReader.postings(term);
+                String termInDocs = "";
+                String termInDocsPostingEnumEntry = "";
+
+                int postingEntry = postingsEnum.nextDoc();
+                int postingLstLngth = 0;
+                while( postingEntry != PostingsEnum.NO_MORE_DOCS )
+                {
+                    termInDocs = termInDocs + postingsEnum.docID() + "; ";
+                    //termInDocsPostingEnumEntry  = termInDocsPostingEnumEntry + postingEntry + "; ";
+                    if (postingsEnum.docID() == i )
+                    {
+
+                        System.out.println("\n\n"+count+"> term = '"+termBytesRef.utf8ToString()+"' :: freq = "+postingsEnum.freq());
+                        count=count+1;
+
+                    }
+                    postingEntry = postingsEnum.nextDoc();
+                    postingLstLngth++;
+                }
+                System.out.println("\n\t\tIndexLeafReader.docFreq = "+indexLeafReader.docFreq(term)+";");
+                System.out.println("\t\tLucene Int. Documents idx. containing term = "+ termInDocs+"\t\tPostingsEnumLength = "+postingLstLngth);
+                //System.out.println("\tTerm Frequency(termInDocsPostingEnumEntry) = "+ termInDocsPostingEnumEntry);
+
             }
         }
 
