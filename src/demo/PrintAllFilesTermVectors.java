@@ -100,12 +100,12 @@ class PrintAllFilesTermVectors {
         if((terms!=null) && (terms.size()>0))
         {
             BytesRef termBytesRef = null;
-            TermsEnum termsEnum = null;
+            TermsEnum termsEnum;
             termsEnum = terms.iterator(null);
             System.out.println("Total no. of terms in the terms object, obtained from index, passed = "+terms.size());
             while(( termBytesRef = termsEnum.next())!= null)
             {
-                System.out.println("term = "+termBytesRef.utf8ToString());
+                System.out.println("term = "+termBytesRef.utf8ToString()+"("+termBytesRef.length+")");
                 count++;
             }
         }

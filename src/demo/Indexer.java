@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 
 public class Indexer {
 
+    public int debug;
     public static void main(String[] args) throws Exception{
         // write your code here
         if (args.length !=2 )
@@ -33,7 +34,7 @@ public class Indexer {
         String dataDir = args[1];
 
         long start = System.currentTimeMillis();
-        Indexer indexer = new Indexer(indexDir);
+        Indexer indexer = new Indexer(indexDir, 1/*debug field*/);
         int numIndexed = indexer.index(dataDir);
         indexer.close();
         long end = System.currentTimeMillis();
@@ -43,7 +44,8 @@ public class Indexer {
 
     private IndexWriter writer;
 
-    public Indexer (String indexDir) throws IOException {
+    public Indexer (String indexDir, int debug) throws IOException {
+        this.debug = debug;
         Directory dir = new SimpleFSDirectory(Paths.get(indexDir));
         //writer = new IndexWriter(dir, new StandardAnalyzer(), true, IndexWriter.MaxFieldLength.UNLIMITED);
         Analyzer analyzer = new StandardAnalyzer(StandardAnalyzer.STOP_WORDS_SET);
@@ -95,7 +97,13 @@ public class Indexer {
         textWithTermVectors = new TextFieldWithTermVectors();
 
         doc.add(new TextField("filename", f.getCanonicalPath(), Field.Store.YES));
-        doc.add(new Field("contents", new FileReader(f), textWithTermVectors));
+        Field contentsField = new Field("contents", new FileReader(f), textWithTermVectors);
+        //Although default itself is one, setting the contents field boost to 1(float);
+        contentsField.setBoost(1);
+        if (debug == 1) {
+            System.out.println("contentsField.boost() = "+contentsField.boost()+"\n");
+        }
+        doc.add(contentsField);
 
         return doc;
     }
